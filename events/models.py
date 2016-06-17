@@ -20,6 +20,8 @@ from bladepolska.snapshots import SnapshotAddon
 from bladepolska.site import current_domain
 from politikon.choices import Choices
 from taggit.managers import TaggableManager
+from PIL import Image
+import StringIO
 
 
 logger = logging.getLogger(__name__)
@@ -52,6 +54,10 @@ class Event(models.Model):
     CHART_MARGIN = 3
     EVENT_SMALL_CHART_DAYS = 14
     EVENT_BIG_CHART_DAYS = 28
+    SMALL_IMAGE_WIDTH = 60
+    SMALL_IMAGE_HEIGHT = 50
+    BIG_IMAGE_WIDTH = 150
+    BIG_IMAGE_HEIGHT = 110
 
     objects = EventManager()
     snapshots = SnapshotAddon(fields=[
@@ -72,9 +78,20 @@ class Event(models.Model):
     title_fb_no = models.TextField(u'tytuł na NIE obiektu FB', default='')
 
     description = models.TextField(u'pełny opis wydarzenia', default='')
-
-    small_image = models.ImageField(u'mały obrazek 340x250', upload_to='events_small', null=True)
-    big_image = models.ImageField(u'duży obrazek 1250x510', upload_to='events_big', null=True)
+    small_image = models.ImageField(
+        u'mały obrazek {}x{}'.format(SMALL_IMAGE_WIDTH, SMALL_IMAGE_HEIGHT),
+        upload_to='events_small',
+        null=True,
+       # width_field='SMALL_IMAGE_WIDTH',
+       # height_field='SMALL_IMAGE_HEIGHT',
+    )
+    big_image = models.ImageField(
+        u'duży obrazek {}x{}'.format(BIG_IMAGE_WIDTH, BIG_IMAGE_HEIGHT),
+        upload_to='events_big',
+        null=True,
+        # width_field='BIG_IMAGE_WIDTH',
+        # height_field='BIG_IMAGE_HEIGHT',
+    )
 
     is_featured = models.BooleanField(u'featured', default=False)
     outcome = models.PositiveIntegerField(u'rozstrzygnięcie', choices=EVENT_OUTCOME_CHOICES, default=1)
@@ -124,6 +141,8 @@ class Event(models.Model):
         """
         if not self.id:
             self.recalculate_prices()
+
+        self.resize_images()
 
         super(Event, self).save(**kwargs)
 
@@ -473,6 +492,32 @@ class Event(models.Model):
                 type=transaction_type,
                 price=abs(refund)
             )
+
+    def resize_images(self):
+        """
+
+        :return:
+        """
+        if self.small_image:
+            # im = self.small_image.file.image
+            # buff2 = b''
+            # for chunk in self.small_image.chunks():
+            #     buff2 += chunk
+            # imn = Image.open(StringIO.StringIO(buff2))
+            imn = Image.open(self.small_image)
+            # imn.format = im.format
+            size = (self.SMALL_IMAGE_WIDTH, self.SMALL_IMAGE_HEIGHT)
+            imn2 = imn.resize(size=size)
+            # imn2.save('/app/aaa.png')
+            # self.small_image.save(self.small_image.file.name, StringIO.StringIO(imn2.tobytes()))
+            self.small_image.file.image = imn2
+
+            self.small_image.file.file.buf = StringIO.StringIO(imn2.tobytes())
+            print imn2.size
+#        if self.big_image:
+#            self.small_image.file.image.resize((self.BIG_IMAGE_WIDTH, self.BIG_IMAGE_HEIGHT))
+        print 'Resizing done'
+
 
 class Bet(models.Model):
     """
